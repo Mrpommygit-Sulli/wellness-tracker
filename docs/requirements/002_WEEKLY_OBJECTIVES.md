@@ -331,14 +331,16 @@ objectives have been set
 
 Before marking Slice 2 complete and beginning Slice 3:
 
-- [ ] `uv run pytest tests/unit` — all tests pass
-- [ ] `uv run ruff check src/` — exit code 0
-- [ ] `uv run mypy src/` — exit code 0
+Verified: 2026-06-28
+
+- [x] `uv run pytest tests/unit` — all tests pass (27 passed)
+- [x] `uv run ruff check src/` — exit code 0
+- [x] `uv run mypy src/` — exit code 0
 - [ ] `git commit` triggers pre-commit hooks and they pass
-- [ ] Scenarios 2.1 through 2.13 have passing unit tests
+- [x] Scenarios 2.1 through 2.13 have passing unit tests
 - [ ] `python main.py --set-objectives` runs interactively and saves correctly
 - [ ] Saved objectives file is valid JSON and human readable
-- [ ] `data/` remains gitignored — no objectives files committed
+- [x] `data/` remains gitignored — no objectives files committed
 
 ---
 

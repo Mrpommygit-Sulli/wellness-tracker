@@ -238,12 +238,14 @@ in the slice completion checklist.
 
 Before marking Slice 1 complete and beginning Slice 2:
 
-- [ ] `uv sync` completes without error
-- [ ] `uv run pytest tests/unit` — all tests pass
-- [ ] `uv run ruff check src/` — exit code 0
-- [ ] `uv run mypy src/` — exit code 0
-- [ ] `git commit` triggers pre-commit hooks and they pass
-- [ ] `.env` is not committed to git
-- [ ] `data/` directory is not committed to git
-- [ ] Scenarios 1.1 through 1.3 have passing unit tests
-- [ ] CLAUDE.md is committed to the repository
+Verified: 2026-06-28
+
+- [x] `uv sync` completes without error
+- [x] `uv run pytest tests/unit` — all tests pass (3 passed)
+- [x] `uv run ruff check src/` — exit code 0
+- [x] `uv run mypy src/` — exit code 0
+- [x] `git commit` triggers pre-commit hooks and they pass
+- [x] `.env` is not committed to git
+- [x] `data/` directory is not committed to git
+- [x] Scenarios 1.1 through 1.3 have passing unit tests
+- [x] CLAUDE.md is committed to the repository
