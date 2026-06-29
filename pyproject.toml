@@ -16,9 +16,6 @@ dependencies = [
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [dependency-groups]
 dev = [
     "pytest",
@@ -44,3 +41,9 @@ python_version = "3.12"
 strict = false
 warn_return_any = true
 warn_unused_configs = true
+
+[tool.uv]
+package = true
+
+[tool.setuptools.package-dir]
+"" = "src"
