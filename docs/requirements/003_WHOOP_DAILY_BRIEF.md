@@ -58,7 +58,8 @@ Extend the existing `DailyEnvelope` stub with two additions:
 
 #### DailyEnvelope (extend existing stub)
 
-Add one field to the existing four-field stub:
+Add one field to the existing five-field stub (`envelope_id`, `date`,
+`status`, `week_starting`, `objectives_version`):
 
 | Field | Type | Default |
 |-------|------|---------|
@@ -184,8 +185,12 @@ Minimal orchestrator — handles only `whoop_brief` in this slice.
 Extended in every subsequent slice.
 
 Responsibilities in this slice:
-- Load current weekly objectives (fail with clear message if none set)
-- Load today's envelope from disk if it exists, create new one if not
+- Load current weekly objectives and their version (fail with clear message
+  if none set)
+- Load today's envelope from disk if it exists, create new one if not —
+  recording `week_starting` and `objectives_version` on the envelope at
+  creation time so the envelope stays pinned to the objectives revision in
+  force when the day started
 - Route `whoop_brief` input to `WhoopBriefAgent`
 - Apply agent output to envelope (`envelope.whoop = WhoopDayContext(...)`)
 - Persist envelope to `data/diary/YYYY-MM-DD.json`
@@ -200,8 +205,10 @@ class Orchestrator:
         input_type: str,
         raw_text: str
     ) -> dict:
-        objectives = load_current_objectives()  # raises if none set
-        envelope = self._load_or_create_envelope(objectives)
+        objectives, version = load_current_objectives()  # raises if none set
+        envelope = self._load_or_create_envelope(
+            objectives.week_starting, version
+        )
 
         if input_type == "whoop_brief":
             return self._handle_whoop_brief(raw_text, envelope)
@@ -226,15 +233,21 @@ class Orchestrator:
 
     def _load_or_create_envelope(
         self,
-        objectives: WeeklyObjectives
+        week_starting: str,
+        objectives_version: str
     ) -> DailyEnvelope:
         # Load from data/diary/YYYY-MM-DD.json if exists
-        # Create new DailyEnvelope if not
+        # Create new DailyEnvelope if not, using week_starting and
+        # objectives_version passed in
 
     def _save_envelope(self, envelope: DailyEnvelope) -> None:
         # Write to data/diary/YYYY-MM-DD.json
         # Create directory if not exists
 ```
+
+Note: when an existing envelope is loaded from disk, its `week_starting` and
+`objectives_version` are left untouched — they only get set once, at
+envelope creation.
 
 ---
 
@@ -410,7 +423,8 @@ Here is the extracted data: strain target is 14.2
 
 ### Scenario 3.4 — DailyEnvelope Accepts WhoopDayContext
 
-**Given** a valid `DailyEnvelope` with `whoop = None`
+**Given** a valid `DailyEnvelope` with `week_starting` and `objectives_version`
+set and `whoop = None`
 **When** a `WhoopDayContext` is assigned to `envelope.whoop`
 **Then** `envelope.whoop.strain_target` reflects the assigned value
 
@@ -474,6 +488,8 @@ the initial call and the retry
 - JSON deserialises to a valid `DailyEnvelope`
 - `envelope.whoop.strain_target == 14.2`
 - `envelope.status == "in_progress"`
+- `envelope.week_starting` and `envelope.objectives_version` match the
+  current weekly objectives at the time the envelope was created
 
 ---
 

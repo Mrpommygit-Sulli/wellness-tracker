@@ -4,31 +4,7 @@ from pathlib import Path
 import pytest
 
 from wellness_tracker.models.envelope import DailyEnvelope, WhoopDayContext
-from wellness_tracker.models.objectives import (
-    NutritionTargets,
-    TrainingTarget,
-    WeeklyObjectives,
-    WeightGoal,
-)
 from wellness_tracker.storage import diary as diary_storage
-
-
-@pytest.fixture
-def valid_objectives() -> WeeklyObjectives:
-    return WeeklyObjectives(
-        week_starting="2026-06-23",
-        weight_goal=WeightGoal(
-            direction="lose",
-            target_weekly_deficit_kcal=2800,
-            current_weight_kg=82.0,
-        ),
-        training_targets={
-            "running": TrainingTarget(sessions=3, min_duration_minutes=40)
-        },
-        nutrition_targets=NutritionTargets(
-            daily_calorie_target=1900, daily_protein_target_g=140
-        ),
-    )
 
 
 @pytest.fixture(autouse=True)
@@ -37,29 +13,35 @@ def patch_diary_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestSaveEnvelope:
-    def test_saves_to_correct_path(self, valid_objectives: WeeklyObjectives) -> None:
+    def test_saves_to_correct_path(self) -> None:
         envelope = DailyEnvelope(
             date="2026-06-27",
-            weekly_objectives=valid_objectives,
+            week_starting="2026-06-23",
+            objectives_version="v1",
             whoop=WhoopDayContext(strain_target=14.2),
         )
         path = diary_storage.save_envelope(envelope)
         assert path == diary_storage.settings.diary_dir / "2026-06-27.json"
         assert path.exists()
 
-    def test_saved_file_is_valid_json(self, valid_objectives: WeeklyObjectives) -> None:
-        envelope = DailyEnvelope(date="2026-06-27", weekly_objectives=valid_objectives)
+    def test_saved_file_is_valid_json(self) -> None:
+        envelope = DailyEnvelope(
+            date="2026-06-27", week_starting="2026-06-23", objectives_version="v1"
+        )
         path = diary_storage.save_envelope(envelope)
         data = json.loads(path.read_text())
         assert data["date"] == "2026-06-27"
         assert data["status"] == "in_progress"
+        assert data["week_starting"] == "2026-06-23"
+        assert data["objectives_version"] == "v1"
 
 
 class TestLoadEnvelope:
-    def test_loads_existing_envelope(self, valid_objectives: WeeklyObjectives) -> None:
+    def test_loads_existing_envelope(self) -> None:
         envelope = DailyEnvelope(
             date="2026-06-27",
-            weekly_objectives=valid_objectives,
+            week_starting="2026-06-23",
+            objectives_version="v1",
             whoop=WhoopDayContext(strain_target=14.2),
         )
         diary_storage.save_envelope(envelope)

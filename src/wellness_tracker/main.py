@@ -65,8 +65,8 @@ def _prompt_set_objectives() -> None:
         constraints=constraints,
     )
 
-    path = save_objectives(objectives)
-    print(f"\nObjectives saved to {path}")
+    path, version = save_objectives(objectives)
+    print(f"\nObjectives saved to {path} ({version})")
 
 
 def _run_whoop(raw_text: str) -> None:

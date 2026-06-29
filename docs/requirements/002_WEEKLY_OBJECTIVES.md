@@ -83,7 +83,14 @@ Minimal stub — only fields needed by this slice. Extended in subsequent slices
 | envelope_id | str | Generated: `env_{date}_{uuid4_short}` |
 | date | str | ISO date YYYY-MM-DD |
 | status | Literal["in_progress", "finalised"] | "in_progress" |
-| weekly_objectives | WeeklyObjectives | Required |
+| week_starting | str | Required |
+| objectives_version | str | Required |
+
+The envelope references the weekly objectives by `week_starting` and
+`objectives_version` rather than embedding the full `WeeklyObjectives`
+object. This keeps the envelope decoupled from the specific objectives
+revision in force when the day started, even if objectives are later
+revised mid-week.
 
 ---
 
@@ -91,21 +98,38 @@ Minimal stub — only fields needed by this slice. Extended in subsequent slices
 
 ### File: `src/wellness_tracker/storage/objectives.py`
 
-Two functions:
+Objectives are stored as versioned files, one per revision, so that any
+`DailyEnvelope` created mid-week can keep referencing the exact objectives
+revision that was in force when its day started — even if objectives are
+later revised. Filenames follow `week_{week_starting}_v{n}.json`, with `n`
+starting at 1 and incrementing by 1 each time objectives are saved for that
+week.
+
+Four functions:
 
 ```
-save_objectives(objectives: WeeklyObjectives) -> Path
-    Writes to data/objectives/week_{week_starting}.json
-    Returns the path written to
+get_current_version(week_starting: str) -> str
+    Scans data/objectives/ for files matching week_{week_starting}_v*.json
+    Returns the highest version found, formatted as "v{n}"
+    Raises FileNotFoundError if no versions exist for that week
+
+save_objectives(objectives: WeeklyObjectives) -> tuple[Path, str]
+    Determines the next version for objectives.week_starting
+    (1 if none exist yet, otherwise current version + 1)
+    Writes to data/objectives/week_{week_starting}_v{n}.json
+    Returns (path written to, version string e.g. "v1")
     Creates the directory if it does not exist
 
-load_objectives(week_starting: str) -> WeeklyObjectives
-    Reads from data/objectives/week_{week_starting}.json
+load_objectives(week_starting: str, version: str | None = None) -> WeeklyObjectives
+    Reads from data/objectives/week_{week_starting}_{version}.json
+    If version is None, uses get_current_version(week_starting)
     Raises FileNotFoundError if file does not exist
     Raises ValidationError if file content is invalid
 
-load_current_objectives() -> WeeklyObjectives
-    Finds the most recent objectives file
+load_current_objectives() -> tuple[WeeklyObjectives, str]
+    Finds the most recent week_starting across all saved objectives
+    Resolves its current version via get_current_version
+    Returns (objectives, version string)
     Raises FileNotFoundError if no objectives have been set
 ```
 
@@ -138,10 +162,10 @@ Constraints (enter blank to finish):
   Constraint: left knee — avoid high impact if pain above 3/10
   Constraint:
 
-Objectives saved to data/objectives/week_2026-06-23.json
+Objectives saved to data/objectives/week_2026-06-23_v1.json (v1)
 ```
 
-On completion, prints confirmation with the path written to.
+On completion, prints confirmation with the path written to and the version.
 
 ---
 
@@ -262,35 +286,49 @@ tests/
 
 ### Scenario 2.7 — DailyEnvelope Stub Created with Defaults
 
-**Given** a valid `WeeklyObjectives` instance and today's date
+**Given** a `week_starting` and `objectives_version` and today's date
 **When** a `DailyEnvelope` is created
 **Then**
 - `envelope.status == "in_progress"`
-- `envelope.weekly_objectives` matches the objectives passed in
+- `envelope.week_starting` matches the value passed in
+- `envelope.objectives_version` matches the value passed in
 - `envelope.envelope_id` starts with `"env_"`
 - `envelope.date` matches today's date
 
 ---
 
-### Scenario 2.8 — Objectives Saved to Correct Path
+### Scenario 2.8 — Objectives Saved to Correct Versioned Path
 
 **Given** a valid `WeeklyObjectives` with `week_starting = "2026-06-23"`
-**When** `save_objectives(objectives)` is called
+**When** `save_objectives(objectives)` is called for the first time that week
 **Then**
-- The file `data/objectives/week_2026-06-23.json` exists
+- The returned tuple is `(path, "v1")`
+- The file `data/objectives/week_2026-06-23_v1.json` exists
 - The file contains valid JSON
 - The JSON round-trips back to an identical `WeeklyObjectives` instance
+
+**Given** objectives have already been saved once for `"2026-06-23"`
+**When** `save_objectives(objectives)` is called again
+**Then**
+- The returned version is `"v2"`
+- The file `data/objectives/week_2026-06-23_v2.json` exists
+- The original `week_2026-06-23_v1.json` is left untouched
 
 ---
 
 ### Scenario 2.9 — Objectives Loaded Back Correctly
 
 **Given** a `WeeklyObjectives` instance that has been saved to disk
-**When** `load_objectives("2026-06-23")` is called
+**When** `load_objectives("2026-06-23")` is called with no version
 **Then**
-- The returned `WeeklyObjectives` instance matches the original
+- The returned `WeeklyObjectives` instance matches the most recently saved
+  version
 - All nested models are correctly deserialised
 - All field values are identical to what was saved
+
+**Given** multiple versions exist for `"2026-06-23"`
+**When** `load_objectives("2026-06-23", version="v1")` is called
+**Then** the first saved revision is returned, not the latest
 
 ---
 
@@ -302,11 +340,17 @@ tests/
 
 ---
 
-### Scenario 2.11 — Load Current Objectives Returns Most Recent
+### Scenario 2.11 — Load Current Objectives Returns Most Recent Week and Version
 
 **Given** objectives files exist for `"2026-06-16"` and `"2026-06-23"`
 **When** `load_current_objectives()` is called
-**Then** the objectives for `"2026-06-23"` are returned
+**Then** the objectives for `"2026-06-23"` are returned, paired with its
+current version string
+
+**Given** `"2026-06-23"` has two saved versions, `v1` and `v2`
+**When** `load_current_objectives()` is called
+**Then** the returned version is `"v2"` and the objectives reflect that
+revision
 
 ---
 
@@ -327,6 +371,18 @@ objectives have been set
 
 ---
 
+### Scenario 2.14 — get_current_version Resolves Latest Revision
+
+**Given** objectives have been saved twice for `"2026-06-23"`
+**When** `get_current_version("2026-06-23")` is called
+**Then** `"v2"` is returned
+
+**Given** no objectives exist for `"2026-01-01"`
+**When** `get_current_version("2026-01-01")` is called
+**Then** a `FileNotFoundError` is raised
+
+---
+
 ## Slice Completion Checklist
 
 Before marking Slice 2 complete and beginning Slice 3:
@@ -337,7 +393,7 @@ Verified: 2026-06-28
 - [x] `uv run ruff check src/` — exit code 0
 - [x] `uv run mypy src/` — exit code 0
 - [ ] `git commit` triggers pre-commit hooks and they pass
-- [x] Scenarios 2.1 through 2.13 have passing unit tests
+- [x] Scenarios 2.1 through 2.14 have passing unit tests
 - [ ] `python main.py --set-objectives` runs interactively and saves correctly
 - [ ] Saved objectives file is valid JSON and human readable
 - [x] `data/` remains gitignored — no objectives files committed
@@ -359,7 +415,17 @@ Generate in a `model_post_init` or via `default_factory`.
 **save_objectives**
 Use `model.model_dump_json(indent=2)` for human-readable output.
 Create parent directories with `Path.mkdir(parents=True, exist_ok=True)`.
+Determine the next version by calling `get_current_version` and incrementing,
+falling back to `"v1"` if no version exists yet (i.e. `get_current_version`
+raises `FileNotFoundError`).
+
+**get_current_version**
+Filenames follow `week_{week_starting}_v{n}.json`. Glob for
+`week_{week_starting}_v*.json`, parse the integer after `v`, and return the
+max formatted as `"v{n}"`.
 
 **load_current_objectives**
-Sort objective filenames lexicographically — ISO date format sorts correctly
-as a string. Take the last item after sorting.
+Filenames sort lexicographically by `week_starting` since ISO date format
+sorts correctly as a string. Determine the most recent `week_starting` across
+all saved files, then resolve its current version via `get_current_version`
+before loading.
