@@ -184,7 +184,7 @@ Key sections:
 | Type checking | mypy (pragmatic — typed where it matters) |
 | Version control | Git |
 | Pre-commit hooks | pre-commit (Ruff + mypy) |
-| IDE | PyCharm |
+| IDE | PyCharm / Claude Desktop |
 
 ---
 
@@ -193,6 +193,7 @@ Key sections:
 ```
 wellness_tracker/
 ├── CLAUDE.md                          # This file
+├── README.md                          # Project overview
 ├── pyproject.toml                     # UV project config, dependencies
 ├── .env                               # API keys — gitignored
 ├── .env.example                       # Template — committed to git
@@ -223,6 +224,9 @@ wellness_tracker/
 │       ├── hitl.py                    # Escalation and decision capture
 │       ├── audit.py                   # Append-only JSONL audit writer
 │       │
+│       ├── prompts/                   # YAML prompt files — travel with package
+│       │   └── (one per agent, added per slice)
+│       │
 │       ├── models/
 │       │   ├── __init__.py
 │       │   ├── envelope.py            # DailyEnvelope and sub-models
@@ -233,14 +237,7 @@ wellness_tracker/
 │       ├── agents/
 │       │   ├── __init__.py
 │       │   ├── base.py                # BaseAgent — all agents extend this
-│       │   ├── classification.py
-│       │   ├── whoop_brief.py
-│       │   ├── training_extraction.py
-│       │   ├── nutrition_extraction.py
-│       │   ├── accumulator.py
-│       │   ├── end_of_day.py
-│       │   ├── validation.py
-│       │   └── weekly_report.py
+│       │   └── (one per agent, added per slice)
 │       │
 │       └── guardrails/
 │           ├── __init__.py
@@ -299,6 +296,22 @@ Every audit record contains:
 The envelope is written to disk after every agent run — not just at end of day.
 If the process is interrupted, the envelope reflects the last completed agent.
 
+**Prompts**
+Prompts live in `src/wellness_tracker/prompts/` as YAML files.
+Loaded via `importlib.resources` — never via relative Path strings.
+Each YAML file must include `agent_id`, `version`, `system_prompt`,
+and `max_tokens`.
+Bump `version` when prompt content changes.
+Only prompts required for the current slice are added —
+never speculatively for future slices.
+
+YAML prompt files must be declared in `pyproject.toml` to ensure they
+are included when the package is installed:
+```toml
+[tool.setuptools.package-data]
+"wellness_tracker.prompts" = ["*.yaml"]
+```
+
 **Testing LLM calls**
 Unit and integration tests never call the real LLM. All LLM calls are mocked
 via `unittest.mock.patch`. Canned responses live in `tests/fixtures/llm_responses.py`.
@@ -330,6 +343,34 @@ Agent output parsing may use `Any` where Pydantic handles runtime validation.
 
 Slice requirement documents live in `docs/requirements/`.
 Each document is named after the outcome it delivers.
+
+---
+
+## Known Setup Issues
+
+**UV src layout — ModuleNotFoundError**
+
+UV src layout requires three things in `pyproject.toml` to work correctly:
+
+```toml
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.uv]
+package = true
+```
+
+Without all three, `uv run` may fail with `ModuleNotFoundError: No module
+named 'wellness_tracker'` even when the `.pth` file exists.
+
+If this occurs, confirm all three are present in `pyproject.toml` then run:
+
+```bash
+rm -rf .venv && rm -f uv.lock && uv sync
+```
 
 ---
 
