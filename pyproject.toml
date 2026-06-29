@@ -10,6 +10,7 @@ dependencies = [
     "anthropic",
     "pydantic>=2.0",
     "python-dotenv",
+    "pyyaml",
 ]
 
 [build-system]
@@ -23,11 +24,12 @@ dev = [
     "mypy",
     "ruff",
     "pre-commit",
+    "types-pyyaml",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.ruff]
 target-version = "py312"
@@ -47,3 +49,9 @@ package = true
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"wellness_tracker.prompts" = ["*.yaml"]

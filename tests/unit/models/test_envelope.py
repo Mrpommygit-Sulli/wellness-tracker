@@ -1,6 +1,6 @@
 import pytest
 
-from wellness_tracker.models.envelope import DailyEnvelope
+from wellness_tracker.models.envelope import DailyEnvelope, WhoopDayContext
 from wellness_tracker.models.objectives import (
     NutritionTargets,
     TrainingTarget,
@@ -50,3 +50,11 @@ class TestDailyEnvelope:
             weekly_objectives=valid_objectives,
         )
         assert env.envelope_id == "env_custom_id"
+
+    def test_accepts_whoop_day_context(
+        self, valid_objectives: WeeklyObjectives
+    ) -> None:
+        env = DailyEnvelope(date="2026-06-28", weekly_objectives=valid_objectives)
+        assert env.whoop is None
+        env.whoop = WhoopDayContext(strain_target=14.2)
+        assert env.whoop.strain_target == 14.2

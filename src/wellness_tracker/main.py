@@ -8,6 +8,7 @@ from wellness_tracker.models.objectives import (
     WeeklyObjectives,
     WeightGoal,
 )
+from wellness_tracker.orchestrator import Orchestrator
 from wellness_tracker.storage.objectives import save_objectives
 
 
@@ -68,15 +69,36 @@ def _prompt_set_objectives() -> None:
     print(f"\nObjectives saved to {path}")
 
 
+def _run_whoop(raw_text: str) -> None:
+    try:
+        result = Orchestrator().process("whoop_brief", raw_text)
+    except FileNotFoundError:
+        print("✗ No weekly objectives found")
+        print("  Run --set-objectives before logging daily data")
+        sys.exit(1)
+
+    if result["status"] == "success":
+        print("✓ Whoop brief logged")
+        print(f"  Strain target: {result['output'].strain_target}")
+        print(f"  Envelope saved: {result['path']}")
+    else:
+        print("⚠ Could not extract strain target from input")
+        print("  Try again with clearer text e.g.")
+        print('  "Whoop strain target 14.2 today"')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Wellness Tracker")
     parser.add_argument(
         "--set-objectives", action="store_true", help="Set weekly objectives"
     )
+    parser.add_argument("--whoop", type=str, help="Log morning Whoop brief")
     args = parser.parse_args()
 
     if args.set_objectives:
         _prompt_set_objectives()
+    elif args.whoop:
+        _run_whoop(args.whoop)
     else:
         parser.print_help()
         sys.exit(1)

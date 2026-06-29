@@ -14,3 +14,4 @@ repos:
         additional_dependencies:
           - pydantic>=2.0
           - python-dotenv
+          - types-pyyaml

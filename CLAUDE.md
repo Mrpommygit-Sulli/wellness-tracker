@@ -175,7 +175,7 @@ Key sections:
 | Package manager | UV |
 | Package layout | src layout — `src/wellness_tracker/` |
 | LLM SDK | anthropic (official Python SDK) |
-| LLM Model | claude-haiku-3-5 (configurable via .env) |
+| LLM Model | claude-haiku-4-5-20251001 (configurable via .env) |
 | Data validation | Pydantic v2 |
 | Configuration | python-dotenv, .env file |
 | Storage | JSON files (diary), JSONL files (audit) |
